@@ -1,6 +1,7 @@
 using Expresso.Api.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Expresso.Api.ErrorHandling;
 
@@ -17,6 +18,7 @@ public class DomainExceptionHandler(IProblemDetailsService problemDetails, ILogg
         {
             NotFoundException => (StatusCodes.Status404NotFound, "Recurso não encontrado"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflito"),
+            DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflito"),
             BusinessRuleException => (StatusCodes.Status422UnprocessableEntity, "Regra de negócio violada"),
             _ => (StatusCodes.Status500InternalServerError, "Erro inesperado")
         };
@@ -33,7 +35,12 @@ public class DomainExceptionHandler(IProblemDetailsService problemDetails, ILogg
             {
                 Status = status,
                 Title = title,
-                Detail = exception is DomainException ? exception.Message : null
+                Detail = exception switch
+                {
+                    DomainException => exception.Message,
+                    DbUpdateConcurrencyException => "O registro foi alterado por outra pessoa. Atualize e tente de novo.",
+                    _ => null
+                }
             }
         });
     }

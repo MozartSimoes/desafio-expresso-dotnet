@@ -30,6 +30,10 @@ public class ExpressoDbContext(DbContextOptions<ExpressoDbContext> options) : Db
             order.Property(o => o.Total).HasPrecision(10, 2);
             order.HasIndex(o => new { o.Status, o.CreatedAt });
 
+            // Optimistic concurrency on PostgreSQL's xmin: if two baristas change the same order at once,
+            // the second save fails instead of silently overwriting the first.
+            order.Property<uint>("Version").IsRowVersion();
+
             // Items are reachable only through the order, which controls how they are added.
             order.HasMany(o => o.Items).WithOne().HasForeignKey("OrderId").OnDelete(DeleteBehavior.Cascade);
             order.Navigation(o => o.Items).UsePropertyAccessMode(PropertyAccessMode.Field);

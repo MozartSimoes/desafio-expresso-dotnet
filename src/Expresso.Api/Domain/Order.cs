@@ -5,6 +5,16 @@ public record OrderLine(Product Product, int Quantity, string? Notes);
 
 public class Order
 {
+    // The whole lifecycle in one table: Received → Preparing → Ready → Delivered, and cancel only while Received.
+    private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
+    {
+        [OrderStatus.Received] = [OrderStatus.Preparing, OrderStatus.Canceled],
+        [OrderStatus.Preparing] = [OrderStatus.Ready],
+        [OrderStatus.Ready] = [OrderStatus.Delivered],
+        [OrderStatus.Delivered] = [],
+        [OrderStatus.Canceled] = []
+    };
+
     private readonly List<OrderItem> _items = [];
 
     public int Id { get; private set; }
@@ -36,6 +46,19 @@ public class Order
 
         order.Total = order._items.Sum(i => i.Subtotal);
         return order;
+    }
+
+    public void ChangeStatus(OrderStatus next)
+    {
+        if (AllowedTransitions[Status].Contains(next))
+        {
+            Status = next;
+            return;
+        }
+
+        throw new ConflictException(next == OrderStatus.Canceled
+            ? $"O pedido só pode ser cancelado enquanto estiver Received (situação atual: {Status})."
+            : $"Não é possível mudar a situação de {Status} para {next}.");
     }
 
     private void AddItem(OrderLine line)

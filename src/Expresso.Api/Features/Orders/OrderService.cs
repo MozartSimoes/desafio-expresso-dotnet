@@ -37,6 +37,14 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock)
         return OrderResponse.From(order);
     }
 
+    public async Task<OrderResponse> ChangeStatusAsync(int id, OrderStatus status, CancellationToken ct)
+    {
+        var order = await FindAsync(id, ct);
+        order.ChangeStatus(status);
+        await db.SaveChangesAsync(ct);
+        return OrderResponse.From(order);
+    }
+
     private async Task<Order> FindAsync(int id, CancellationToken ct) =>
         await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id, ct)
             ?? throw new NotFoundException("Pedido", id);

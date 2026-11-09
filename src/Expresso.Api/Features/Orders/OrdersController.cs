@@ -28,4 +28,15 @@ public class OrdersController(OrderService service) : ControllerBase
         var order = await service.CreateAsync(request, ct);
         return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
     }
+
+    /// <summary>
+    /// Moves the order along Received → Preparing → Ready → Delivered, or cancels it while still Received.
+    /// </summary>
+    [HttpPatch("{id:int}/status")]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<OrderResponse> ChangeStatus(int id, ChangeStatusRequest request, CancellationToken ct) =>
+        service.ChangeStatusAsync(id, request.Status!.Value, ct);
 }

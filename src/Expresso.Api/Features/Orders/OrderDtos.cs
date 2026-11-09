@@ -14,6 +14,8 @@ public record OrderRequest(
     string CustomerName,
     [Required(ErrorMessage = "Informe os itens do pedido.")] IReadOnlyList<OrderItemRequest> Items);
 
+public record ChangeStatusRequest([Required(ErrorMessage = "Informe a nova situação.")] OrderStatus? Status);
+
 public record OrderItemResponse(
     int ProductId, string ProductName, ProductSize? Size, int Quantity, decimal UnitPrice, decimal Subtotal, string? Notes);
 
