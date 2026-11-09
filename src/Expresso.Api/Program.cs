@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Expresso.Api.Data;
 using Expresso.Api.ErrorHandling;
+using Expresso.Api.Features.Orders;
 using Expresso.Api.Features.Products;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +16,9 @@ builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 
 builder.Services.AddDbContext<ExpressoDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("Expresso")));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<OrderService>();
 
 var app = builder.Build();
 
