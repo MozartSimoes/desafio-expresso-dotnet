@@ -23,6 +23,7 @@ public class ProductsController(ProductService service) : ControllerBase
     [ProducesResponseType<ProductResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<ProductResponse>> Create(ProductRequest request, CancellationToken ct)
     {
         var product = await service.CreateAsync(request, ct);
@@ -35,6 +36,7 @@ public class ProductsController(ProductService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public Task<ProductResponse> Update(int id, ProductRequest request, CancellationToken ct) =>
         service.UpdateAsync(id, request, ct);
 }
