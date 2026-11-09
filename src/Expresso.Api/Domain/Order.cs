@@ -29,9 +29,22 @@ public class Order
         };
 
         foreach (var line in lines)
-            order._items.Add(new OrderItem(line.Product, line.Quantity, line.Notes));
+            order.AddItem(line);
+
+        if (order._items.Count == 0)
+            throw new BusinessRuleException("O pedido precisa ter pelo menos um item.");
 
         order.Total = order._items.Sum(i => i.Subtotal);
         return order;
+    }
+
+    private void AddItem(OrderLine line)
+    {
+        if (line.Quantity <= 0)
+            throw new BusinessRuleException($"A quantidade de '{line.Product.Name}' deve ser maior que zero.");
+        if (!line.Product.Available)
+            throw new BusinessRuleException($"O produto '{line.Product.Name}' está indisponível no momento.");
+
+        _items.Add(new OrderItem(line.Product, line.Quantity, line.Notes));
     }
 }
