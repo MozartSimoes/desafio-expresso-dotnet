@@ -15,5 +15,15 @@ services:
       interval: 5s
       retries: 10
 
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Expresso: "Host=postgres;Port=5432;Database=expresso;Username=expresso;Password=expresso"
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
