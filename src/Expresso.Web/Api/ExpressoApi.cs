@@ -13,11 +13,8 @@ public class ApiException(string message, HttpStatusCode status) : Exception(mes
 /// <summary>Typed client for the Expresso API. Adds the logged-in user's token to every call.</summary>
 public class ExpressoApi(HttpClient http, Session session)
 {
-    public async Task<LoginResponse> LoginAsync(string username, string password)
-    {
-        var response = await http.PostAsJsonAsync("api/auth/login", new LoginRequest(username, password));
-        return await ReadAsync<LoginResponse>(response);
-    }
+    public Task<LoginResponse> LoginAsync(string username, string password) =>
+        SendAsync<LoginResponse>(HttpMethod.Post, "api/auth/login", new LoginRequest(username, password));
 
     public Task<MenuTodayDto> GetMenuTodayAsync() => SendAsync<MenuTodayDto>(HttpMethod.Get, "api/menu/today");
     public Task<List<ProductDto>> GetProductsAsync() => SendAsync<List<ProductDto>>(HttpMethod.Get, "api/products");

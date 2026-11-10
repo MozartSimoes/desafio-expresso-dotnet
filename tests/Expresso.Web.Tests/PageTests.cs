@@ -38,6 +38,22 @@ public class LoginTests : WebTestBase
     }
 }
 
+public class ApiOfflineTests : WebTestBase
+{
+    // Found by hand: with the API stopped, the login crashed the page instead of showing a message.
+    [Fact]
+    public void Login_with_the_api_offline_shows_a_message_instead_of_crashing()
+    {
+        Api.On(HttpMethod.Post, "/api/auth/login", _ => throw new HttpRequestException("Connection refused"));
+        var page = Render<Login>();
+
+        page.Find("form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains("Não foi possível falar com a API", page.Find(".alert.error").TextContent));
+        Assert.False(Session.IsLoggedIn);
+    }
+}
+
 public class BoardTests : WebTestBase
 {
     private readonly List<OrderDto> _orders = [Order(1, "Received"), Order(2, "Preparing"), Order(3, "Ready")];
