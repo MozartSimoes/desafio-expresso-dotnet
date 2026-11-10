@@ -1,0 +1,118 @@
+@page "/painel"
+@inherits StaffPage
+@implements IDisposable
+
+<PageTitle>Painel · Expresso</PageTitle>
+
+@if (Session.IsLoggedIn)
+{
+    <div class="page-header">
+        <h1>Painel de pedidos</h1>
+        <span class="muted">Atualiza sozinho a cada @RefreshSeconds segundos @(_updatedAt is null ? "" : $"· última às {Labels.Clock(_updatedAt.Value)}")</span>
+    </div>
+
+    <ErrorBanner Message="@Error" />
+
+    <div class="board">
+        @foreach (var (status, title) in Columns)
+        {
+            var orders = _orders.Where(o => o.Status == status).OrderBy(o => o.CreatedAt).ToList();
+            <section class="column">
+                <h2>@title <span class="count">@orders.Count</span></h2>
+                @if (orders.Count == 0)
+                {
+                    <p class="muted empty">Nenhum pedido</p>
+                }
+                @foreach (var order in status == "Delivered" ? orders.TakeLast(5) : orders)
+                {
+                    <article class="order-card @status.ToLowerInvariant()">
+                        <header>
+                            <a href="pedidos/@order.Id"><strong>#@order.Id · @order.CustomerName</strong></a>
+                            <span class="muted">@Labels.Time(order.CreatedAt)</span>
+                        </header>
+                        <ul>
+                            @foreach (var item in order.Items)
+                            {
+                                <li>
+                                    @item.Quantity× @Labels.Product(item.ProductName, item.Size)
+                                    @if (item.Notes is not null)
+                                    {
+                                        <em class="note">“@item.Notes”</em>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                        <footer>
+                            <span>@Labels.Money(order.Total)</span>
+                            <OrderActions Order="order" OnChanged="ReplaceAsync" OnError="ShowError" />
+                        </footer>
+                    </article>
+                }
+            </section>
+        }
+    </div>
+}
+
+@code {
+    private const int RefreshSeconds = 5;
+
+    private static readonly (string Status, string Title)[] Columns =
+    [
+        ("Received", "Recebidos"),
+        ("Preparing", "Preparando"),
+        ("Ready", "Prontos"),
+        ("Delivered", "Entregues")
+    ];
+
+    private List<OrderDto> _orders = [];
+    private DateTimeOffset? _updatedAt;
+    private readonly CancellationTokenSource _stop = new();
+
+    protected override async Task LoadAsync()
+    {
+        await RefreshAsync();
+        _ = KeepRefreshingAsync();
+    }
+
+    // Simple polling: enough for a counter with a few orders per minute. With many screens open,
+    // the API could push changes instead (SignalR).
+    private async Task KeepRefreshingAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(RefreshSeconds));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_stop.Token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await RunAsync(RefreshAsync);
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Page closed.
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        _orders = await Api.GetOrdersAsync();
+        _updatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private async Task ReplaceAsync(OrderDto changed)
+    {
+        Error = null;
+        await RunAsync(RefreshAsync);
+    }
+
+    private void ShowError(string message) => Error = message;
+
+    public void Dispose()
+    {
+        _stop.Cancel();
+        _stop.Dispose();
+    }
+}

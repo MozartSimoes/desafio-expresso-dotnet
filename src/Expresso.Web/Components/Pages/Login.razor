@@ -1,0 +1,75 @@
+@page "/"
+@inject Session Session
+@inject ExpressoApi Api
+@inject NavigationManager Nav
+
+<PageTitle>Entrar · Expresso</PageTitle>
+
+<div class="login">
+    <h1>☕ Expresso</h1>
+    <p class="muted">Pedidos do balcão à entrega</p>
+
+    <form @onsubmit="SignInAsync" class="card">
+        <label>
+            Usuário
+            <input @bind="_username" autocomplete="username" autofocus />
+        </label>
+        <label>
+            Senha
+            <input type="password" @bind="_password" autocomplete="current-password" />
+        </label>
+        <ErrorBanner Message="@_error" />
+        <button class="primary" type="submit" disabled="@_busy">Entrar</button>
+    </form>
+
+    <div class="card demo">
+        <strong>Usuários de demonstração</strong>
+        @foreach (var (user, role) in DemoUsers)
+        {
+            <button class="link" type="button" @onclick="() => Fill(user)">
+                <code>@user</code> / <code>@(user)123</code> · @role
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly (string User, string Role)[] DemoUsers =
+    [
+        ("atendente", "registra e cancela pedidos"),
+        ("barista", "prepara e entrega"),
+        ("gerente", "tudo, inclusive cardápio e preços")
+    ];
+
+    private string _username = "";
+    private string _password = "";
+    private string? _error;
+    private bool _busy;
+
+    protected override void OnInitialized()
+    {
+        if (Session.IsLoggedIn)
+            Nav.NavigateTo("painel");
+    }
+
+    private void Fill(string user) => (_username, _password) = (user, $"{user}123");
+
+    private async Task SignInAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            Session.SignIn(await Api.LoginAsync(_username, _password));
+            Nav.NavigateTo(Session.CanTakeOrders && !Session.IsManager ? "novo-pedido" : "painel");
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

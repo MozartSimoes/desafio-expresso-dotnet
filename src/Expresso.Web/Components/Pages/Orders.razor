@@ -1,0 +1,51 @@
+@page "/pedidos"
+@inherits StaffPage
+
+<PageTitle>Buscar pedido · Expresso</PageTitle>
+
+@if (Session.IsLoggedIn)
+{
+    <div class="page-header">
+        <h1>Buscar pedido</h1>
+        <span class="muted">“Meu pedido sumiu”: procure pelo nome do cliente e abra o histórico.</span>
+    </div>
+
+    <form class="search" @onsubmit="SearchAsync">
+        <input @bind="_customer" placeholder="Parte do nome do cliente (ex.: mari)" />
+        <button class="primary" type="submit">Buscar</button>
+    </form>
+
+    <ErrorBanner Message="@Error" />
+
+    <table class="table">
+        <thead>
+            <tr><th>#</th><th>Cliente</th><th>Horário</th><th>Itens</th><th>Total</th><th>Situação</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var order in _orders)
+            {
+                <tr class="clickable" @onclick='() => Nav.NavigateTo($"pedidos/{order.Id}")'>
+                    <td>@order.Id</td>
+                    <td>@order.CustomerName</td>
+                    <td>@Labels.DateTime(order.CreatedAt)</td>
+                    <td>@string.Join(", ", order.Items.Select(i => $"{i.Quantity}× {Labels.Product(i.ProductName, i.Size)}"))</td>
+                    <td>@Labels.Money(order.Total)</td>
+                    <td><StatusBadge Status="@order.Status" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_orders.Count == 0)
+    {
+        <p class="muted">Nenhum pedido encontrado.</p>
+    }
+}
+
+@code {
+    private string _customer = "";
+    private List<OrderDto> _orders = [];
+
+    protected override async Task LoadAsync() => _orders = await Api.GetOrdersAsync();
+
+    private Task SearchAsync() => RunAsync(async () => _orders = await Api.GetOrdersAsync(_customer));
+}

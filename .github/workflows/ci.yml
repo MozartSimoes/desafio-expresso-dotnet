@@ -30,5 +30,7 @@ jobs:
     needs: build-and-test
     steps:
       - uses: actions/checkout@v4
-      - name: Build Docker image
+      - name: Build API image
         run: docker build -t expresso-api .
+      - name: Build web image
+        run: docker build -t expresso-web -f src/Expresso.Web/Dockerfile .

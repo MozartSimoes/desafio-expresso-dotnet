@@ -1,0 +1,73 @@
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--coffee);
+    color: var(--cream);
+}
+
+.brand {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--cream);
+    text-decoration: none;
+}
+
+nav {
+    display: flex;
+    gap: 1.25rem;
+    flex: 1;
+}
+
+nav ::deep a {
+    color: var(--cream);
+    opacity: 0.75;
+    text-decoration: none;
+}
+
+nav ::deep a.active, nav ::deep a:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.user {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.user .link {
+    color: var(--cream);
+}
+
+main {
+    padding: 1.5rem;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+@media (max-width: 700px) {
+    .topbar { flex-wrap: wrap; gap: 0.75rem; }
+    main { padding: 1rem; }
+}

@@ -1,0 +1,124 @@
+@page "/pedidos/{Id:int}"
+@inherits StaffPage
+
+<PageTitle>Pedido #@Id · Expresso</PageTitle>
+
+@if (Session.IsLoggedIn)
+{
+    <div class="page-header">
+        <h1>Pedido #@Id</h1>
+        @if (_order is not null)
+        {
+            <StatusBadge Status="@_order.Status" />
+        }
+        <button class="link" @onclick="() => RunAsync(LoadAsync)">Atualizar</button>
+    </div>
+
+    <ErrorBanner Message="@Error" />
+
+    @if (_order is not null)
+    {
+        <div class="detail">
+            <section class="card">
+                <h2>@_order.CustomerName</h2>
+                <p class="muted">Registrado em @Labels.DateTime(_order.CreatedAt)</p>
+                <table class="table">
+                    <thead><tr><th>Item</th><th>Qtd.</th><th>Preço</th><th>Subtotal</th></tr></thead>
+                    <tbody>
+                        @foreach (var item in _order.Items)
+                        {
+                            <tr>
+                                <td>
+                                    @Labels.Product(item.ProductName, item.Size)
+                                    @if (item.Notes is not null)
+                                    {
+                                        <br /><em class="note">“@item.Notes”</em>
+                                    }
+                                </td>
+                                <td>@item.Quantity</td>
+                                <td>@Labels.Money(item.UnitPrice)</td>
+                                <td>@Labels.Money(item.Subtotal)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot><tr><th colspan="3">Total</th><th>@Labels.Money(_order.Total)</th></tr></tfoot>
+                </table>
+                <small class="muted">Preços do momento do pedido: mudar o cardápio não altera este pedido.</small>
+                <OrderActions Order="_order" OnChanged="ChangedAsync" OnError="m => Error = m" />
+            </section>
+
+            <section class="card">
+                <h2>Histórico</h2>
+                <ol class="timeline">
+                    @foreach (var entry in _history)
+                    {
+                        <li>
+                            <strong>@Labels.Status(entry.To)</strong>
+                            <span class="muted">@Labels.DateTime(entry.ChangedAt) · @entry.ChangedBy</span>
+                        </li>
+                    }
+                </ol>
+            </section>
+
+            <section class="card">
+                <h2>Cupom fiscal</h2>
+                @if (_receipt is null)
+                {
+                    <p class="muted">Gerado quando o pedido é entregue.</p>
+                }
+                else
+                {
+                    <p>
+                        <span class="badge receipt-@_receipt.Status.ToLowerInvariant()">@Labels.Receipt(_receipt.Status)</span>
+                        @if (_receipt.Number is not null)
+                        {
+                            <strong> @_receipt.Number</strong>
+                        }
+                    </p>
+                    <dl>
+                        <dt>Tentativas</dt><dd>@_receipt.Attempts</dd>
+                        @if (_receipt.IssuedAt is { } issued)
+                        {
+                            <dt>Emitido em</dt><dd>@Labels.DateTime(issued)</dd>
+                        }
+                        @if (_receipt.NextAttemptAt is { } next)
+                        {
+                            <dt>Próxima tentativa</dt><dd>@Labels.DateTime(next)</dd>
+                        }
+                        @if (_receipt.LastError is not null)
+                        {
+                            <dt>Último erro</dt><dd>@_receipt.LastError</dd>
+                        }
+                    </dl>
+                    @if (_receipt.Status == "Pending")
+                    {
+                        <small class="muted">Emitido em segundo plano; o balcão não precisa esperar.</small>
+                    }
+                    @if (_receipt.Status == "Failed" && Session.IsManager)
+                    {
+                        <button class="primary" @onclick="RetryAsync">Reenviar cupom</button>
+                    }
+                }
+            </section>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private OrderDto? _order;
+    private List<OrderHistoryDto> _history = [];
+    private ReceiptDto? _receipt;
+
+    protected override async Task LoadAsync()
+    {
+        _order = await Api.GetOrderAsync(Id);
+        _history = await Api.GetHistoryAsync(Id);
+        _receipt = await Api.GetReceiptAsync(Id);
+    }
+
+    private Task ChangedAsync(OrderDto _) => RunAsync(LoadAsync);
+
+    private Task RetryAsync() => RunAsync(async () => _receipt = await Api.RetryReceiptAsync(Id));
+}

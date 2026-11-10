@@ -1,0 +1,41 @@
+@inject Session Session
+@inject ExpressoApi Api
+
+@* Buttons shown according to the profile; the API checks the permission again on every call. *@
+<div class="actions">
+    @if (Session.CanPrepareOrders && Labels.NextStep(Order.Status) is { } step)
+    {
+        <button class="primary" disabled="@_busy" @onclick="() => RunAsync(() => Api.AdvanceAsync(Order.Id, step.Next))">
+            @step.Button
+        </button>
+    }
+    @if (Session.CanTakeOrders && Order.Status == "Received")
+    {
+        <button class="danger" disabled="@_busy" @onclick="() => RunAsync(() => Api.CancelAsync(Order.Id))">Cancelar</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OrderDto Order { get; set; } = null!;
+    [Parameter] public EventCallback<OrderDto> OnChanged { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private bool _busy;
+
+    private async Task RunAsync(Func<Task<OrderDto>> action)
+    {
+        _busy = true; // one click, one request
+        try
+        {
+            await OnChanged.InvokeAsync(await action());
+        }
+        catch (ApiException ex)
+        {
+            await OnError.InvokeAsync(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

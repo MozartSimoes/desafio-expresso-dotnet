@@ -1,0 +1,51 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject Session Session
+@inject NavigationManager Nav
+
+<header class="topbar">
+    <a class="brand" href="painel">☕ Expresso</a>
+
+    @if (Session.IsLoggedIn)
+    {
+        <nav>
+            <NavLink href="painel">Painel</NavLink>
+            @if (Session.CanTakeOrders)
+            {
+                <NavLink href="novo-pedido">Novo pedido</NavLink>
+            }
+            <NavLink href="pedidos">Buscar pedido</NavLink>
+            <NavLink href="cardapio">Cardápio</NavLink>
+        </nav>
+        <div class="user">
+            <span>@Session.Name</span>
+            <button class="link" @onclick="SignOut">Sair</button>
+        </div>
+    }
+</header>
+
+<main>
+    @Body
+</main>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocorreu um erro inesperado.
+    <a href="." class="reload">Recarregar</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    private void OnSessionChanged()
+    {
+        // Logged out (button or expired token): back to the login screen.
+        if (!Session.IsLoggedIn)
+            Nav.NavigateTo("");
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SignOut() => Session.SignOut();
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

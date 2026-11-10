@@ -1,0 +1,182 @@
+@page "/novo-pedido"
+@inherits StaffPage
+
+<PageTitle>Novo pedido · Expresso</PageTitle>
+
+@if (Session.IsLoggedIn)
+{
+    <div class="page-header">
+        <h1>Novo pedido</h1>
+    </div>
+
+    @if (!Session.CanTakeOrders)
+    {
+        <div class="alert">Somente atendente e gerente registram pedidos.</div>
+        return;
+    }
+
+    @if (_menuToday is not null)
+    {
+        <div class="alert info">
+            <strong>@_menuToday.Suggestion</strong>
+            <span>
+                @_menuToday.OpeningHours
+                @if (_menuToday.Weather is { } w)
+                {
+                    <text> · @w.City: @w.TemperatureC.ToString("0")°C, @w.Condition</text>
+                }
+                @if (_menuToday.Holiday is not null)
+                {
+                    <text> · Feriado: @_menuToday.Holiday</text>
+                }
+            </span>
+            @foreach (var warning in _menuToday.Warnings)
+            {
+                <small class="muted">⚠ @warning</small>
+            }
+        </div>
+    }
+
+    <ErrorBanner Message="@Error" />
+
+    @if (_placed is not null)
+    {
+        <div class="alert success">
+            Pedido <a href="pedidos/@_placed.Id"><strong>#@_placed.Id</strong></a> registrado para
+            <strong>@_placed.CustomerName</strong> · total @Labels.Money(_placed.Total) (calculado pela API).
+        </div>
+    }
+
+    <div class="new-order">
+        <section class="menu">
+            @foreach (var group in _products.Where(p => p.Available).GroupBy(p => p.Category))
+            {
+                <h2>@Labels.Category(group.Key)</h2>
+                <div class="products">
+                    @foreach (var product in group)
+                    {
+                        var soldOut = product.Stock == 0;
+                        <button class="product @(Suggested(product) ? "suggested" : "")" disabled="@soldOut"
+                                @onclick="() => Add(product)">
+                            <span>@Labels.Product(product.Name, product.Size)</span>
+                            <strong>@Labels.Money(product.Price)</strong>
+                            @if (product.Stock is { } stock)
+                            {
+                                <small class="muted">@(soldOut ? "esgotado" : $"{stock} em estoque")</small>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+
+        <aside class="card cart">
+            <label>
+                Nome do cliente
+                <input @bind="_customer" @bind:event="oninput" placeholder="Ex.: Maria" maxlength="60" />
+            </label>
+
+            @if (_lines.Count == 0)
+            {
+                <p class="muted">Toque nos produtos para adicionar.</p>
+            }
+            @foreach (var line in _lines)
+            {
+                <div class="line">
+                    <div class="line-head">
+                        <span>@Labels.Product(line.Product.Name, line.Product.Size)</span>
+                        <div class="qty">
+                            <button type="button" @onclick="() => Change(line, -1)">−</button>
+                            <span>@line.Quantity</span>
+                            <button type="button" @onclick="() => Change(line, +1)">+</button>
+                        </div>
+                    </div>
+                    <input class="note-input" @bind="line.Notes" placeholder="Observação (ex.: sem açúcar)" maxlength="140" />
+                </div>
+            }
+
+            <div class="total">
+                <span>Total estimado</span>
+                <strong>@Labels.Money(_lines.Sum(l => l.Product.Price * l.Quantity))</strong>
+            </div>
+            <small class="muted">O valor final é calculado pela API com os preços do momento.</small>
+
+            <button class="primary big" disabled="@(_busy || _lines.Count == 0)" @onclick="PlaceAsync">
+                @(_busy ? "Enviando…" : "Finalizar pedido")
+            </button>
+        </aside>
+    </div>
+}
+
+@code {
+    private sealed class Line(ProductDto product)
+    {
+        public ProductDto Product { get; } = product;
+        public int Quantity { get; set; } = 1;
+        public string? Notes { get; set; }
+    }
+
+    private List<ProductDto> _products = [];
+    private MenuTodayDto? _menuToday;
+    private readonly List<Line> _lines = [];
+    private string _customer = "";
+    private OrderDto? _placed;
+    private bool _busy;
+
+    // "Toque duplo": one key per order being assembled. If "Finalizar" is sent twice (double click, network
+    // retry), the API answers both with the same order. A new key is created only after an order succeeds.
+    private string _idempotencyKey = Guid.NewGuid().ToString();
+
+    protected override async Task LoadAsync()
+    {
+        if (!Session.CanTakeOrders)
+            return;
+
+        _products = await Api.GetProductsAsync();
+        try
+        {
+            _menuToday = await Api.GetMenuTodayAsync();
+        }
+        catch (ApiException)
+        {
+            // The suggestion is a bonus; the counter keeps working without it.
+        }
+    }
+
+    private bool Suggested(ProductDto product) =>
+        _menuToday?.SuggestedProducts.Any(p => p.Id == product.Id) == true;
+
+    private void Add(ProductDto product)
+    {
+        _placed = null;
+        var line = _lines.FirstOrDefault(l => l.Product.Id == product.Id && string.IsNullOrEmpty(l.Notes));
+        if (line is null)
+            _lines.Add(new Line(product));
+        else
+            line.Quantity++;
+    }
+
+    private void Change(Line line, int delta)
+    {
+        line.Quantity += delta;
+        if (line.Quantity <= 0)
+            _lines.Remove(line);
+    }
+
+    private async Task PlaceAsync()
+    {
+        _busy = true;
+        var request = new OrderRequest(_customer,
+            _lines.Select(l => new OrderItemRequest(l.Product.Id, l.Quantity,
+                string.IsNullOrWhiteSpace(l.Notes) ? null : l.Notes.Trim())).ToList());
+
+        if (await RunAsync(async () => _placed = await Api.PlaceOrderAsync(request, _idempotencyKey)))
+        {
+            _lines.Clear();
+            _customer = "";
+            _idempotencyKey = Guid.NewGuid().ToString();
+            _products = await Api.GetProductsAsync(); // stock changed
+        }
+        _busy = false;
+    }
+}

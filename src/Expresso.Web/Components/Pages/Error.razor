@@ -1,0 +1,22 @@
+﻿@page "/Error"
+@attribute [ExcludeFromInteractiveRouting]
+@using System.Diagnostics
+
+<PageTitle>Erro</PageTitle>
+
+<h1>Ocorreu um erro.</h1>
+
+@if (!string.IsNullOrEmpty(RequestId))
+{
+    <p>Código para o suporte: <code>@RequestId</code></p>
+}
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

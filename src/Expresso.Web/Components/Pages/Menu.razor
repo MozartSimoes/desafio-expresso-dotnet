@@ -1,0 +1,76 @@
+@page "/cardapio"
+@inherits StaffPage
+
+<PageTitle>Cardápio · Expresso</PageTitle>
+
+@if (Session.IsLoggedIn)
+{
+    <div class="page-header">
+        <h1>Cardápio</h1>
+        <span class="muted">@(Session.IsManager ? "Altere preço, disponibilidade e estoque e clique em Salvar." : "Somente o gerente altera o cardápio.")</span>
+    </div>
+
+    <ErrorBanner Message="@Error" />
+    @if (_saved is not null)
+    {
+        <div class="alert success">@_saved</div>
+    }
+
+    <table class="table menu-table">
+        <thead>
+            <tr><th>Produto</th><th>Categoria</th><th>Preço (R$)</th><th>Disponível</th><th>Estoque</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _rows)
+            {
+                <tr>
+                    <td>@Labels.Product(row.Product.Name, row.Product.Size)</td>
+                    <td>@Labels.Category(row.Product.Category)</td>
+                    <td><input type="number" step="0.01" min="0.01" @bind="row.Price" disabled="@(!Session.IsManager)" /></td>
+                    <td><input type="checkbox" @bind="row.Available" disabled="@(!Session.IsManager)" /></td>
+                    <td>
+                        <input type="number" min="0" @bind="row.Stock" placeholder="sem controle"
+                               disabled="@(!Session.IsManager)" />
+                    </td>
+                    <td>
+                        @if (Session.IsManager && row.Changed)
+                        {
+                            <button class="primary" @onclick="() => SaveAsync(row)">Salvar</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <small class="muted">Estoque vazio = sem controle (bebidas feitas na hora). Mudar o preço não altera pedidos já feitos.</small>
+}
+
+@code {
+    private sealed class Row(ProductDto product)
+    {
+        public ProductDto Product { get; set; } = product;
+        public decimal Price { get; set; } = product.Price;
+        public bool Available { get; set; } = product.Available;
+        public int? Stock { get; set; } = product.Stock;
+
+        public bool Changed => Price != Product.Price || Available != Product.Available || Stock != Product.Stock;
+    }
+
+    private List<Row> _rows = [];
+    private string? _saved;
+
+    protected override async Task LoadAsync() =>
+        _rows = (await Api.GetProductsAsync()).Select(p => new Row(p)).ToList();
+
+    private async Task SaveAsync(Row row)
+    {
+        _saved = null;
+        var p = row.Product;
+        await RunAsync(async () =>
+        {
+            row.Product = await Api.UpdateProductAsync(p.Id,
+                new ProductRequest(p.Name, p.Category, p.Size, row.Price, row.Available, row.Stock));
+            _saved = $"{Labels.Product(p.Name, p.Size)} atualizado.";
+        });
+    }
+}

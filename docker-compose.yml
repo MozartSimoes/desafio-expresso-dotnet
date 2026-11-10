@@ -28,5 +28,17 @@ services:
     ports:
       - "8080:8080"
 
+  # Blazor screens for the counter; they talk to the API inside the Docker network.
+  web:
+    build:
+      context: .
+      dockerfile: src/Expresso.Web/Dockerfile
+    depends_on:
+      - api
+    environment:
+      Api__BaseUrl: "http://api:8080/"
+    ports:
+      - "8081:8080"
+
 volumes:
   pgdata:

@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Expresso.Api/Expresso.Api.csproj" />
+    <Project Path="src/Expresso.Web/Expresso.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Expresso.Tests/Expresso.Tests.csproj" />
+    <Project Path="tests/Expresso.Web.Tests/Expresso.Web.Tests.csproj" />
   </Folder>
 </Solution>
