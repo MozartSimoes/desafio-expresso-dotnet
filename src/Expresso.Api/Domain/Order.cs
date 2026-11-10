@@ -57,8 +57,8 @@ public class Order
         }
 
         throw new ConflictException(next == OrderStatus.Canceled
-            ? $"O pedido só pode ser cancelado enquanto estiver Received (situação atual: {Status})."
-            : $"Não é possível mudar a situação de {Status} para {next}.");
+            ? $"O pedido só pode ser cancelado enquanto estiver Recebido (situação atual: {Status.ToLabel()})."
+            : $"Não é possível mudar a situação de {Status.ToLabel()} para {next.ToLabel()}.");
     }
 
     private void AddItem(OrderLine line)
