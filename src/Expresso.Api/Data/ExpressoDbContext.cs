@@ -9,6 +9,7 @@ public class ExpressoDbContext(DbContextOptions<ExpressoDbContext> options) : Db
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<FiscalReceipt> FiscalReceipts => Set<FiscalReceipt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,20 @@ public class ExpressoDbContext(DbContextOptions<ExpressoDbContext> options) : Db
             record.Property(r => r.Key).HasMaxLength(100);
             record.Property(r => r.RequestHash).HasMaxLength(64);
             record.HasOne(r => r.Order).WithMany().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FiscalReceipt>(receipt =>
+        {
+            receipt.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            receipt.Property(r => r.Number).HasMaxLength(60);
+            receipt.Property(r => r.LastError).HasMaxLength(200);
+
+            // One receipt per order, enforced by the database.
+            receipt.HasIndex(r => r.OrderId).IsUnique();
+            receipt.HasOne<Order>().WithMany().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Cascade);
+
+            // The worker's query: pending receipts whose next attempt is due.
+            receipt.HasIndex(r => new { r.Status, r.NextAttemptAt });
         });
 
         modelBuilder.Entity<OrderStatusChange>(change =>

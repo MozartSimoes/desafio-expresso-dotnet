@@ -22,6 +22,9 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Expresso: "Host=postgres;Port=5432;Database=expresso;Username=expresso;Password=expresso"
+      # Simulated fiscal emitter: 1 = always down, 0 = never fails.
+      FiscalEmitter__FailureRate: "0.3"
+      FiscalEmitter__DelayMilliseconds: "1500"
     ports:
       - "8080:8080"
 

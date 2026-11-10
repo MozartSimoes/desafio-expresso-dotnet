@@ -5,6 +5,7 @@ using Expresso.Api.Features.Auth;
 using Expresso.Api.Features.Menu;
 using Expresso.Api.Features.Orders;
 using Expresso.Api.Features.Products;
+using Expresso.Api.Features.Receipts;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddMenuOfTheDay(builder.Configuration);
+builder.Services.AddFiscalReceipts(builder.Configuration);
 
 var app = builder.Build();
 

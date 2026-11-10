@@ -164,7 +164,14 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock, ILogger<Orde
     {
         var order = await FindAsync(id, ct);
         var previous = order.Status;
-        order.ChangeStatus(status, clock.GetUtcNow(), user);
+        var now = clock.GetUtcNow();
+        order.ChangeStatus(status, now, user);
+
+        // Outbox: the delivery only records that a receipt is due, in the same save. The slow emitter is
+        // called later by FiscalReceiptWorker, so the counter never waits for it (or fails because of it).
+        if (status == OrderStatus.Delivered)
+            db.FiscalReceipts.Add(FiscalReceipt.For(order, now));
+
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Order {OrderId} changed from {From} to {To} by {User}", id, previous, status, user);
