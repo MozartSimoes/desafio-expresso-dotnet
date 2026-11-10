@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Expresso.Api.Data;
 using Expresso.Api.ErrorHandling;
+using Expresso.Api.Features.Menu;
 using Expresso.Api.Features.Orders;
 using Expresso.Api.Features.Products;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ builder.Services.AddDbContext<ExpressoDbContext>(o =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddMenuOfTheDay(builder.Configuration);
 
 var app = builder.Build();
 
