@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Expresso.Api.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -23,8 +24,16 @@ public class DomainExceptionHandler(IProblemDetailsService problemDetails, ILogg
             _ => (StatusCodes.Status500InternalServerError, "Erro inesperado")
         };
 
+        // Same id ASP.NET Core writes as "traceId" in the ProblemDetails body.
+        var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
         if (status == StatusCodes.Status500InternalServerError)
-            logger.LogError(exception, "Unhandled exception");
+            logger.LogError(exception, "Unhandled exception (trace {TraceId})", traceId);
+        else
+            // "Meu pedido sumiu": often the order was refused (out of stock, unavailable) and never existed.
+            // The trace id is also in the response body, so the error the attendant saw leads to this line.
+            logger.LogWarning("{Method} {Path} by {User} refused with {Status}: {Reason} (trace {TraceId})",
+                context.Request.Method, context.Request.Path, context.User.Identity?.Name ?? "anônimo",
+                status, exception.Message, traceId);
 
         context.Response.StatusCode = status;
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext

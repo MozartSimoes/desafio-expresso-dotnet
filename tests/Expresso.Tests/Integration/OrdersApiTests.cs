@@ -52,6 +52,24 @@ public class OrdersApiTests(ApiFactory factory) : ApiTestBase(factory)
         await AssertProblemAsync(response, HttpStatusCode.UnprocessableEntity, "indisponível");
     }
 
+    // "Meu pedido sumiu": an order that was refused never existed, but the log says who tried, why and when,
+    // with the same traceId the attendant saw in the error.
+    [Fact]
+    public async Task Refused_order_leaves_a_trace_in_the_log_with_the_trace_id_of_the_response()
+    {
+        var product = await CreateProductAsync(available: false);
+
+        var response = await Attendant.PostAsJsonAsync("/api/orders",
+            new OrderRequest("Ana", [new OrderItemRequest(product.Id, 1, null)]), Json);
+
+        var problem = await ReadAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(response);
+        var traceId = problem.Extensions["traceId"]!.ToString()!;
+        var line = Assert.Single(Factory.Logs.Lines, l => l.Contains(traceId));
+        Assert.Contains("Warning", line);
+        Assert.Contains("Ana (atendente)", line);
+        Assert.Contains("indisponível", line);
+    }
+
     [Fact]
     public async Task Order_goes_from_received_to_delivered()
     {

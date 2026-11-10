@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
 namespace Expresso.Tests.Integration;
@@ -23,6 +24,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public FakeExternalApis ExternalApis { get; } = new();
     public FakeFiscalEmitter FiscalEmitter { get; } = new();
+    public LogCollector Logs { get; } = new();
 
     public Task InitializeAsync() => _postgres.StartAsync();
 
@@ -41,6 +43,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<IWeatherClient>(ExternalApis);
             services.AddSingleton<IHolidayClient>(ExternalApis);
             services.AddSingleton<IFiscalEmitter>(FiscalEmitter);
+            services.AddSingleton<ILoggerProvider>(Logs);
         });
     }
 
@@ -82,6 +85,25 @@ public class FakeExternalApis : IWeatherClient, IHolidayClient
         Holidays is null
             ? throw new HttpRequestException("BrasilAPI fora do ar")
             : Task.FromResult<IReadOnlyList<Holiday>>(Holidays);
+}
+
+/// <summary>Keeps every log line the API writes, so tests can check what the team would find in the logs.</summary>
+public class LogCollector : ILoggerProvider
+{
+    private readonly ConcurrentQueue<string> _lines = new();
+
+    public IReadOnlyCollection<string> Lines => _lines;
+    public ILogger CreateLogger(string categoryName) => new Collector(_lines);
+    public void Dispose() { }
+
+    private sealed class Collector(ConcurrentQueue<string> lines) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => lines.Enqueue($"{logLevel}: {formatter(state, exception)}");
+    }
 }
 
 /// <summary>Stands in for the fiscal emitter: issues at once, unless a test makes it fail or hang for an order.</summary>
