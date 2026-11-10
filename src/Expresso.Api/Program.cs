@@ -36,11 +36,14 @@ await app.InitializeDatabaseAsync();
 app.UseExceptionHandler();
 app.UseStatusCodePages(); // empty 401/403 responses also get a ProblemDetails body
 
+// Swagger UI is static content with no endpoint; it must come before authorization, or the
+// "login required by default" policy would block the documentation page itself.
+app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Expresso API"));
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapOpenApi().AllowAnonymous();
-app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Expresso API"));
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription().AllowAnonymous();
 
 app.MapControllers();

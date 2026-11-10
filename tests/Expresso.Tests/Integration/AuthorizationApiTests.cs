@@ -18,6 +18,14 @@ public class AuthorizationApiTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(HttpStatusCode.OK, (await Anonymous.GetAsync("/api/menu/today")).StatusCode);
     }
 
+    [Theory]
+    [InlineData("/swagger/index.html")]
+    [InlineData("/openapi/v1.json")]
+    public async Task Api_documentation_is_public(string url)
+    {
+        Assert.Equal(HttpStatusCode.OK, (await Anonymous.GetAsync(url)).StatusCode);
+    }
+
     [Fact]
     public async Task Orders_require_login()
     {
