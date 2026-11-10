@@ -222,3 +222,20 @@ public class MenuTests : WebTestBase
         Assert.Contains("12.5", Api.Requests.Single(r => r.Method == HttpMethod.Put).Body);
     }
 }
+
+public class OrderDetailTests : WebTestBase
+{
+    // Found by hand: opening a received order asked for the receipt, got 409 and stopped the debugger every time.
+    [Fact]
+    public void Order_not_delivered_does_not_ask_for_the_receipt()
+    {
+        LogInAs("Attendant");
+        Api.On(HttpMethod.Get, "/api/orders/6", Order(6, "Received"));
+        Api.On(HttpMethod.Get, "/api/orders/6/history", new List<OrderHistoryDto>());
+
+        var page = Render<OrderDetail>(p => p.Add(x => x.Id, 6));
+
+        page.WaitForAssertion(() => Assert.Contains("Gerado quando o pedido é entregue", page.Markup));
+        Assert.DoesNotContain(Api.Requests, r => r.Path.Contains("/receipt"));
+    }
+}

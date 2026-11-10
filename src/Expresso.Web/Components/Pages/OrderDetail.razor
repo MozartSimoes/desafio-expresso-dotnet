@@ -115,7 +115,8 @@
     {
         _order = await Api.GetOrderAsync(Id);
         _history = await Api.GetHistoryAsync(Id);
-        _receipt = await Api.GetReceiptAsync(Id);
+        // The receipt only exists after delivery; asking earlier is a guaranteed 409 (and a warning in the API log).
+        _receipt = _order.Status == "Delivered" ? await Api.GetReceiptAsync(Id) : null;
     }
 
     private Task ChangedAsync(OrderDto _) => RunAsync(LoadAsync);
