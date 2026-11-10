@@ -22,6 +22,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Expresso.Api\Expresso.Api.csproj" />
+    <!-- Alias: both projects have a public Program class; the web app is used only by the contract test. -->
+    <ProjectReference Include="..\..\src\Expresso.Web\Expresso.Web.csproj" Aliases="web" />
   </ItemGroup>
 
 </Project>
