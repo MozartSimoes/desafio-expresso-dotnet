@@ -16,6 +16,8 @@ public record OrderRequest(
 
 public record ChangeStatusRequest([Required(ErrorMessage = "Informe a nova situação.")] OrderStatus? Status);
 
+public record OrderHistoryEntry(OrderStatus? From, OrderStatus To, DateTimeOffset ChangedAt, string ChangedBy);
+
 public record OrderItemResponse(
     int ProductId, string ProductName, ProductSize? Size, int Quantity, decimal UnitPrice, decimal Subtotal, string? Notes);
 

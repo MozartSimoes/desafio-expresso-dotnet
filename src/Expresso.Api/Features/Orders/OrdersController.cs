@@ -13,15 +13,26 @@ namespace Expresso.Api.Features.Orders;
 [ProducesResponseType(StatusCodes.Status403Forbidden)]
 public class OrdersController(OrderService service) : ControllerBase
 {
-    /// <summary>Lists the latest 100 orders, optionally filtered by status.</summary>
+    // Name of the logged-in staff member, recorded in the order history.
+    private string CurrentUser => User.Identity?.Name ?? "desconhecido";
+
+    /// <summary>Lists the latest 100 orders, optionally filtered by status or part of the customer's name.</summary>
     [HttpGet]
-    public Task<IReadOnlyList<OrderResponse>> List([FromQuery] OrderStatus? status, CancellationToken ct) =>
-        service.ListAsync(status, ct);
+    public Task<IReadOnlyList<OrderResponse>> List(
+        [FromQuery] OrderStatus? status, [FromQuery] string? customer, CancellationToken ct) =>
+        service.ListAsync(status, customer, ct);
 
     [HttpGet("{id:int}")]
     [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<OrderResponse> Get(int id, CancellationToken ct) => service.GetAsync(id, ct);
+
+    /// <summary>Everything that happened to the order: each status change, when and by whom.</summary>
+    [HttpGet("{id:int}/history")]
+    [ProducesResponseType<IReadOnlyList<OrderHistoryEntry>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IReadOnlyList<OrderHistoryEntry>> History(int id, CancellationToken ct) =>
+        service.GetHistoryAsync(id, ct);
 
     /// <summary>Places an order (attendant). Prices and total are calculated by the API from the current menu.</summary>
     [HttpPost]
@@ -31,7 +42,7 @@ public class OrdersController(OrderService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<OrderResponse>> Create(OrderRequest request, CancellationToken ct)
     {
-        var order = await service.CreateAsync(request, ct);
+        var order = await service.CreateAsync(request, CurrentUser, ct);
         return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
     }
 
@@ -44,7 +55,7 @@ public class OrdersController(OrderService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public Task<OrderResponse> ChangeStatus(int id, ChangeStatusRequest request, CancellationToken ct) =>
-        service.AdvanceStatusAsync(id, request.Status!.Value, ct);
+        service.AdvanceStatusAsync(id, request.Status!.Value, CurrentUser, ct);
 
     /// <summary>Cancels the order (attendant). Only allowed while it is still Received.</summary>
     [HttpPost("{id:int}/cancel")]
@@ -52,5 +63,5 @@ public class OrdersController(OrderService service) : ControllerBase
     [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<OrderResponse> Cancel(int id, CancellationToken ct) => service.CancelAsync(id, ct);
+    public Task<OrderResponse> Cancel(int id, CancellationToken ct) => service.CancelAsync(id, CurrentUser, ct);
 }

@@ -16,6 +16,7 @@ public class Order
     };
 
     private readonly List<OrderItem> _items = [];
+    private readonly List<OrderStatusChange> _history = [];
 
     public int Id { get; private set; }
     public string CustomerName { get; private set; } = string.Empty;
@@ -27,9 +28,12 @@ public class Order
 
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
 
+    /// <summary>Every status change, starting with the placement; loaded only when someone asks for it.</summary>
+    public IReadOnlyCollection<OrderStatusChange> History => _history.AsReadOnly();
+
     private Order() { } // EF Core
 
-    public static Order Place(string customerName, DateTimeOffset now, IEnumerable<OrderLine> lines)
+    public static Order Place(string customerName, DateTimeOffset now, IEnumerable<OrderLine> lines, string placedBy)
     {
         var order = new Order
         {
@@ -45,13 +49,15 @@ public class Order
             throw new BusinessRuleException("O pedido precisa ter pelo menos um item.");
 
         order.Total = order._items.Sum(i => i.Subtotal);
+        order._history.Add(new OrderStatusChange(null, OrderStatus.Received, now, placedBy));
         return order;
     }
 
-    public void ChangeStatus(OrderStatus next)
+    public void ChangeStatus(OrderStatus next, DateTimeOffset now, string changedBy)
     {
         if (AllowedTransitions[Status].Contains(next))
         {
+            _history.Add(new OrderStatusChange(Status, next, now, changedBy));
             Status = next;
             return;
         }

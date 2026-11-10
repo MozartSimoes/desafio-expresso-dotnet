@@ -37,6 +37,17 @@ public class ExpressoDbContext(DbContextOptions<ExpressoDbContext> options) : Db
             // Items are reachable only through the order, which controls how they are added.
             order.HasMany(o => o.Items).WithOne().HasForeignKey("OrderId").OnDelete(DeleteBehavior.Cascade);
             order.Navigation(o => o.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            order.HasMany(o => o.History).WithOne().HasForeignKey("OrderId").OnDelete(DeleteBehavior.Cascade);
+            order.Navigation(o => o.History).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<OrderStatusChange>(change =>
+        {
+            change.ToTable("OrderStatusHistory");
+            change.Property(c => c.From).HasConversion<string>().HasMaxLength(20);
+            change.Property(c => c.To).HasConversion<string>().HasMaxLength(20);
+            change.Property(c => c.ChangedBy).HasMaxLength(80);
         });
 
         modelBuilder.Entity<OrderItem>(item =>

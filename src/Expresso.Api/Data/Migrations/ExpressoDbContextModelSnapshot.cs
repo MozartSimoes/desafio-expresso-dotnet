@@ -103,6 +103,41 @@ namespace Expresso.Api.Data.Migrations
                     b.ToTable("OrderItem");
                 });
 
+            modelBuilder.Entity("Expresso.Api.Domain.OrderStatusChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ChangedBy")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("From")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("To")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("OrderStatusHistory", (string)null);
+                });
+
             modelBuilder.Entity("Expresso.Api.Domain.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -156,8 +191,18 @@ namespace Expresso.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Expresso.Api.Domain.OrderStatusChange", b =>
+                {
+                    b.HasOne("Expresso.Api.Domain.Order", null)
+                        .WithMany("History")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("Expresso.Api.Domain.Order", b =>
                 {
+                    b.Navigation("History");
+
                     b.Navigation("Items");
                 });
 #pragma warning restore 612, 618

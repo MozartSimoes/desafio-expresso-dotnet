@@ -98,6 +98,32 @@ public class OrdersApiTests(ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
+    public async Task History_shows_who_did_each_step()
+    {
+        var order = await PlaceOrderAsync((await CreateProductAsync()).Id);
+        (await AdvanceAsync(order.Id, OrderStatus.Preparing)).EnsureSuccessStatusCode();
+
+        var history = (await Attendant.GetFromJsonAsync<List<OrderHistoryEntry>>($"/api/orders/{order.Id}/history", Json))!;
+
+        Assert.Equal([OrderStatus.Received, OrderStatus.Preparing], history.Select(h => h.To));
+        Assert.Equal(["Ana (atendente)", "Bruno (barista)"], history.Select(h => h.ChangedBy));
+    }
+
+    [Fact]
+    public async Task Orders_can_be_found_by_part_of_the_customer_name()
+    {
+        var customer = $"Cliente {Guid.NewGuid():N}"[..20];
+        var response = await Attendant.PostAsJsonAsync("/api/orders",
+            new OrderRequest(customer, [new OrderItemRequest((await CreateProductAsync()).Id, 1, null)]), Json);
+        response.EnsureSuccessStatusCode();
+
+        var found = await Attendant.GetFromJsonAsync<List<OrderResponse>>(
+            $"/api/orders?customer={customer[8..].ToUpperInvariant()}", Json);
+
+        Assert.Equal(customer, Assert.Single(found!).CustomerName);
+    }
+
+    [Fact]
     public async Task Concurrent_changes_to_the_same_order_are_detected()
     {
         var order = await PlaceOrderAsync((await CreateProductAsync()).Id);
@@ -110,10 +136,10 @@ public class OrdersApiTests(ApiFactory factory) : ApiTestBase(factory)
         var orderA = await dbA.Orders.SingleAsync(o => o.Id == order.Id);
         var orderB = await dbB.Orders.SingleAsync(o => o.Id == order.Id);
 
-        orderA.ChangeStatus(OrderStatus.Preparing);
+        orderA.ChangeStatus(OrderStatus.Preparing, DateTimeOffset.UtcNow, "teste");
         await dbA.SaveChangesAsync();
 
-        orderB.ChangeStatus(OrderStatus.Canceled);
+        orderB.ChangeStatus(OrderStatus.Canceled, DateTimeOffset.UtcNow, "teste");
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => dbB.SaveChangesAsync());
     }
 }
