@@ -15,8 +15,8 @@ public class ProductService(ExpressoDbContext db)
         if (available is not null)
             query = query.Where(p => p.Available == available);
 
-        var products = await query.OrderBy(p => p.Category).ThenBy(p => p.Name).ThenBy(p => p.Size).ToListAsync(ct);
-        return products.Select(ProductResponse.From).ToList();
+        var products = await query.ToListAsync(ct);
+        return products.OrderForMenu().Select(ProductResponse.From).ToList();
     }
 
     public async Task<ProductResponse> GetAsync(int id, CancellationToken ct) =>

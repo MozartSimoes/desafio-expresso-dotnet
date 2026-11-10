@@ -12,6 +12,14 @@ public record ProductRequest(
     [Range(0.01, 9999.99, ErrorMessage = "O preço deve estar entre 0,01 e 9.999,99.")] decimal Price,
     bool Available = true);
 
+public static class ProductOrdering
+{
+    // Sorted in memory: sizes are stored as text, and the database would put "G" before "M" and "P".
+    // The menu is small, so this costs nothing.
+    public static IEnumerable<Product> OrderForMenu(this IEnumerable<Product> products) =>
+        products.OrderBy(p => p.Category).ThenBy(p => p.Name).ThenBy(p => p.Size);
+}
+
 public record ProductResponse(
     int Id, string Name, ProductCategory Category, ProductSize? Size, decimal Price, bool Available)
 {
