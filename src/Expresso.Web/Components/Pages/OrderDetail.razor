@@ -11,10 +11,18 @@
         {
             <StatusBadge Status="@_order.Status" />
         }
-        <button class="link" @onclick="() => RunAsync(LoadAsync)">Atualizar</button>
+        <button class="link" disabled="@_refreshing" @onclick="RefreshAsync">@(_refreshing ? "Atualizando…" : "Atualizar")</button>
+        @if (_updatedAt is { } updated)
+        {
+            <span class="muted updated">atualizado às @Labels.Clock(updated)</span>
+        }
     </div>
 
     <ErrorBanner Message="@Error" />
+    @if (Loading)
+    {
+        <LoadingIndicator />
+    }
 
     @if (_order is not null)
     {
@@ -117,6 +125,24 @@
         _history = await Api.GetHistoryAsync(Id);
         // The receipt only exists after delivery; asking earlier is a guaranteed 409 (and a warning in the API log).
         _receipt = _order.Status == "Delivered" ? await Api.GetReceiptAsync(Id) : null;
+        _updatedAt = DateTimeOffset.UtcNow;
+    }
+
+    // Without feedback, a refresh that finds nothing new looks like a dead button.
+    private bool _refreshing;
+    private DateTimeOffset? _updatedAt;
+
+    private async Task RefreshAsync()
+    {
+        _refreshing = true;
+        try
+        {
+            await RunAsync(LoadAsync);
+        }
+        finally
+        {
+            _refreshing = false;
+        }
     }
 
     private Task ChangedAsync(OrderDto _) => RunAsync(LoadAsync);

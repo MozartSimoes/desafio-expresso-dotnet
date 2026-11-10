@@ -239,3 +239,43 @@ public class OrderDetailTests : WebTestBase
         Assert.DoesNotContain(Api.Requests, r => r.Path.Contains("/receipt"));
     }
 }
+
+public class OrderDetailRefreshTests : WebTestBase
+{
+    // Found by hand: clicking "Atualizar" with nothing new looked like the button did nothing.
+    [Fact]
+    public void Refresh_reloads_the_order_and_shows_when_it_was_updated()
+    {
+        LogInAs("Attendant");
+        Api.On(HttpMethod.Get, "/api/orders/6", Order(6, "Received"));
+        Api.On(HttpMethod.Get, "/api/orders/6/history", new List<OrderHistoryDto>());
+        var page = Render<OrderDetail>(p => p.Add(x => x.Id, 6));
+        page.WaitForAssertion(() => Assert.Contains("atualizado às", page.Find(".updated").TextContent));
+
+        page.FindAll("button").Single(b => b.TextContent == "Atualizar").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(2, Api.Requests.Count(r => r.Path == "/api/orders/6")));
+    }
+}
+
+public class LoadingTests : WebTestBase
+{
+    // The annex asks for loading states: before the first answer, "Nenhum pedido" would be a wrong statement.
+    [Fact]
+    public void Board_says_loading_until_the_api_answers_and_only_then_shows_empty_columns()
+    {
+        LogInAs("Barista");
+        Api.On(HttpMethod.Get, "/api/orders", new List<OrderDto>());
+        Api.Hold = new TaskCompletionSource();
+
+        var page = Render<Board>();
+
+        Assert.Equal(4, page.FindAll(".loading").Count);
+        Assert.DoesNotContain("Nenhum pedido", page.Markup);
+
+        Api.Hold.SetResult();
+
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".empty").Count));
+        Assert.Empty(page.FindAll(".loading"));
+    }
+}

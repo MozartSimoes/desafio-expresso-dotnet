@@ -35,7 +35,11 @@
             }
         </tbody>
     </table>
-    @if (_orders.Count == 0)
+    @if (Loading)
+    {
+        <LoadingIndicator />
+    }
+    else if (_orders.Count == 0)
     {
         <p class="muted">Nenhum pedido encontrado.</p>
     }

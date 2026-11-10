@@ -13,6 +13,9 @@ public abstract class StaffPage : ComponentBase
     /// <summary>Message from the last failed API call, shown at the top of the page.</summary>
     protected string? Error { get; set; }
 
+    /// <summary>True until the first load finishes, so pages show "Carregando…" instead of a misleading empty list.</summary>
+    protected bool Loading { get; private set; } = true;
+
     protected override async Task OnInitializedAsync()
     {
         if (!Session.IsLoggedIn)
@@ -21,6 +24,7 @@ public abstract class StaffPage : ComponentBase
             return;
         }
         await RunAsync(LoadAsync);
+        Loading = false;
     }
 
     protected virtual Task LoadAsync() => Task.CompletedTask;

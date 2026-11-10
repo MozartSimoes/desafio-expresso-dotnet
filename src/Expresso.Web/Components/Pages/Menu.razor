@@ -13,7 +13,12 @@
     <ErrorBanner Message="@Error" />
     @if (_saved is not null)
     {
-        <div class="alert success">@_saved</div>
+        <div class="alert success" role="status">@_saved</div>
+    }
+
+    @if (Loading)
+    {
+        <LoadingIndicator />
     }
 
     <table class="table menu-table">

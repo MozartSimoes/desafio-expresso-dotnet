@@ -19,7 +19,11 @@
             var orders = _orders.Where(o => o.Status == status).OrderBy(o => o.CreatedAt).ToList();
             <section class="column">
                 <h2>@title <span class="count">@orders.Count</span></h2>
-                @if (orders.Count == 0)
+                @if (Loading)
+                {
+                    <LoadingIndicator />
+                }
+                else if (orders.Count == 0)
                 {
                     <p class="muted empty">Nenhum pedido</p>
                 }

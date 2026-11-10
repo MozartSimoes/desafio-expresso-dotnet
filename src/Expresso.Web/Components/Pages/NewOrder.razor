@@ -41,7 +41,7 @@
 
     @if (_placed is not null)
     {
-        <div class="alert success">
+        <div class="alert success" role="status">
             Pedido <a href="pedidos/@_placed.Id"><strong>#@_placed.Id</strong></a> registrado para
             <strong>@_placed.CustomerName</strong> · total @Labels.Money(_placed.Total) (calculado pela API).
         </div>
@@ -49,6 +49,10 @@
 
     <div class="new-order">
         <section class="menu">
+            @if (Loading)
+            {
+                <LoadingIndicator />
+            }
             @foreach (var group in _products.Where(p => p.Available).GroupBy(p => p.Category))
             {
                 <h2>@Labels.Category(group.Key)</h2>

@@ -12,7 +12,7 @@ WebAPI REST para cadastrar o cardápio de uma cafeteria e acompanhar cada pedido
 | As 5 regras de negócio | ✅ todas no domínio e cobertas por testes |
 | Integração com API pública | ✅ Open-Meteo (clima) + BrasilAPI (feriados) → "cardápio do dia" |
 | Vá além: pico das 8h, toque duplo, nota fiscal, API fora do ar, quem pode o quê, "meu pedido sumiu" | ✅ todos os 6 |
-| Testes, Docker Compose, OpenAPI, CI | ✅ 90 testes (unitários, integração com PostgreSQL real e componentes do frontend) |
+| Testes, Docker Compose, OpenAPI, CI | ✅ 93 testes (unitários, integração com PostgreSQL real e componentes do frontend) |
 | Frontend | ✅ Blazor: painel de pedidos, novo pedido, busca, detalhe com histórico e cupom, cardápio |
 
 ---
@@ -116,6 +116,7 @@ Telas para o dia a dia do balcão, em `src/Expresso.Web`:
 - **Toque duplo também no site**: cada pedido em montagem tem uma `Idempotency-Key`. Se o envio falhar e o atendente clicar de novo, vai a mesma chave, e um pedido novo só ganha chave nova depois do sucesso. O botão também fica desabilitado durante o envio.
 - **Atualização por consulta periódica** (5 s) em vez de push: simples e suficiente para o volume de um balcão.
 - **API fora do ar**: o site mostra "Não foi possível falar com a API" em vez de quebrar.
+- **Estados da tela**: "Carregando…" até a primeira resposta (para não afirmar "Nenhum pedido" antes da hora), lista vazia e erro com mensagem em português. Layout que se ajusta a telas pequenas e acessibilidade básica: `lang="pt-BR"`, campos com `<label>`, erros anunciados com `role="alert"` e confirmações com `role="status"`.
 
 ---
 
@@ -242,7 +243,7 @@ Todo pedido entregue precisa de cupom, e o emissor é lento e às vezes cai. O b
 **Testes**
 - **Unitários** para as regras do domínio e **de integração** com o **PostgreSQL real** (Testcontainers), e não SQLite ou banco em memória. Concorrência, transações, `SKIP LOCKED` e índices únicos só são testados de verdade no banco de verdade.
 - As APIs externas e o emissor fiscal são substituídos por versões falsas nos testes, para simular falha e lentidão sem depender da internet.
-- **Telas do Blazor com bUnit**, usando uma API falsa: botões por perfil, mensagens de erro, produto esgotado e a mesma `Idempotency-Key` ao repetir um envio.
+- **Telas do Blazor com bUnit**, usando uma API falsa: botões por perfil, mensagens de erro, produto esgotado, "Carregando…" antes da primeira resposta e a mesma `Idempotency-Key` ao repetir um envio.
 
 **Idioma**
 - **Código em inglês, tudo que uma pessoa lê em português**: mensagens de erro, validações, telas, commits e este README. Inglês no código mantém a consistência com o próprio .NET e evita a mistura `GetPedidoAsync` / acentos em identificadores. É uma convenção de time: em um time que escreve o domínio em português, eu seguiria o padrão do time.
@@ -267,6 +268,7 @@ Todo pedido entregue precisa de cupom, e o emissor é lento e às vezes cai. O b
 |---|---|---|
 | Autenticação real | O RH confirmou que podia ser simulada | ASP.NET Identity ou um provedor OIDC (Entra ID, Keycloak); senhas com hash; chave de assinatura em cofre de segredos, e não no `appsettings` |
 | Painel em tempo real | Consulta a cada 5 s atende ao balcão | SignalR: a API avisa os painéis quando um pedido muda |
+| Painel "pedido pronto" para a TV (tela 3 do Anexo) | Priorizei as telas de quem trabalha no balcão (pedido, painel do barista, busca, cardápio) | Página pública, sem login, só leitura, com número e primeiro nome dos pedidos prontos (nada de itens ou valores); endpoint próprio `GET /api/orders/ready` marcado `[AllowAnonymous]` e letras grandes para ver de longe |
 | Login que sobrevive ao recarregar a página | A sessão fica na conexão do Blazor, de propósito (o token não vai para o navegador) | Cookie de autenticação HttpOnly no site |
 | Emissor fiscal real | Fora do escopo; foi pedido simulado | Implementar `IFiscalEmitter` com o provedor de NFC-e e a referência do cupom como chave de idempotência; contingência offline |
 | Paginação | A lista devolve os 100 mais recentes, suficiente para o balcão | Paginação por cursor (`?after=id`) |

@@ -22,6 +22,9 @@ public class FakeApi : HttpMessageHandler
         return this;
     }
 
+    /// <summary>While set and not completed, every answer waits: lets a test look at the page during a slow API.</summary>
+    public TaskCompletionSource? Hold { get; set; }
+
     public static HttpResponseMessage Problem(HttpStatusCode status, string detail) =>
         new(status) { Content = JsonContent.Create(new { title = "Erro", detail, status = (int)status }) };
 
@@ -31,6 +34,8 @@ public class FakeApi : HttpMessageHandler
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
         var key = request.Headers.TryGetValues("Idempotency-Key", out var values) ? values.Single() : null;
         Requests.Add((request.Method, path, body, key));
+        if (Hold is not null)
+            await Hold.Task;
 
         return _routes.TryGetValue($"{request.Method} {path}", out var answer)
             ? answer(request)
