@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Expresso.Api.Features.Menu;
 
 [ApiController]
 [Route("api/menu")]
+[AllowAnonymous]
 public class MenuController(MenuService service) : ControllerBase
 {
     /// <summary>

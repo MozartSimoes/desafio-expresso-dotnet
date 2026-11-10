@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Expresso.Api.Data;
 using Expresso.Api.ErrorHandling;
+using Expresso.Api.Features.Auth;
 using Expresso.Api.Features.Menu;
 using Expresso.Api.Features.Orders;
 using Expresso.Api.Features.Products;
@@ -16,9 +17,10 @@ builder.Services
         // Invalid JSON gets a generic message instead of one that exposes internal type names.
         o.AllowInputFormatterExceptionMessages = false;
     });
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(o => o.AddBearerSecurityScheme());
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+builder.Services.AddSimulatedAuth(builder.Configuration);
 
 builder.Services.AddDbContext<ExpressoDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("Expresso")));
@@ -32,9 +34,14 @@ var app = builder.Build();
 await app.InitializeDatabaseAsync();
 
 app.UseExceptionHandler();
-app.MapOpenApi();
+app.UseStatusCodePages(); // empty 401/403 responses also get a ProblemDetails body
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapOpenApi().AllowAnonymous();
 app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Expresso API"));
-app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription().AllowAnonymous();
 
 app.MapControllers();
 

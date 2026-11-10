@@ -1,3 +1,6 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Expresso.Api.Features.Auth;
 using Expresso.Api.Features.Menu;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -27,6 +30,17 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<IWeatherClient>(ExternalApis);
             services.AddSingleton<IHolidayClient>(ExternalApis);
         });
+    }
+
+    /// <summary>A client already logged in as one of the demo users (atendente, barista, gerente).</summary>
+    public async Task<HttpClient> CreateClientAsAsync(string username)
+    {
+        var client = CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(username, $"{username}123"));
+        response.EnsureSuccessStatusCode();
+        var login = await response.Content.ReadFromJsonAsync<LoginResponse>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+        return client;
     }
 
     public new async Task DisposeAsync()

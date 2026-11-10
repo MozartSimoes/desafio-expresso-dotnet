@@ -37,7 +37,19 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock)
         return OrderResponse.From(order);
     }
 
-    public async Task<OrderResponse> ChangeStatusAsync(int id, OrderStatus status, CancellationToken ct)
+    public Task<OrderResponse> AdvanceStatusAsync(int id, OrderStatus status, CancellationToken ct)
+    {
+        // Cancelling has its own endpoint because a different role (the attendant) is allowed to do it.
+        if (status == OrderStatus.Canceled)
+            throw new BusinessRuleException($"Para cancelar, use POST /api/orders/{id}/cancel.");
+
+        return ChangeStatusAsync(id, status, ct);
+    }
+
+    public Task<OrderResponse> CancelAsync(int id, CancellationToken ct) =>
+        ChangeStatusAsync(id, OrderStatus.Canceled, ct);
+
+    private async Task<OrderResponse> ChangeStatusAsync(int id, OrderStatus status, CancellationToken ct)
     {
         var order = await FindAsync(id, ct);
         order.ChangeStatus(status);
