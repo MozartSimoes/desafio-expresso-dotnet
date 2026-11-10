@@ -26,7 +26,8 @@ public class ProductService(ExpressoDbContext db)
     {
         await EnsureUniqueAsync(request, currentId: null, ct);
 
-        var product = new Product(request.Name, request.Category!.Value, request.Size, request.Price, request.Available);
+        var product = new Product(
+            request.Name, request.Category!.Value, request.Size, request.Price, request.Available, request.Stock);
         db.Products.Add(product);
         await db.SaveChangesAsync(ct);
         return ProductResponse.From(product);
@@ -37,7 +38,8 @@ public class ProductService(ExpressoDbContext db)
         var product = await FindAsync(id, ct);
         await EnsureUniqueAsync(request, currentId: id, ct);
 
-        product.Update(request.Name, request.Category!.Value, request.Size, request.Price, request.Available);
+        product.Update(
+            request.Name, request.Category!.Value, request.Size, request.Price, request.Available, request.Stock);
         await db.SaveChangesAsync(ct);
         return ProductResponse.From(product);
     }

@@ -23,6 +23,13 @@ public class ProductTests
     }
 
     [Fact]
+    public void Stock_cannot_be_negative()
+    {
+        Assert.Throws<BusinessRuleException>(() =>
+            new Product("Coxinha", ProductCategory.Snack, null, 7.5m, stock: -1));
+    }
+
+    [Fact]
     public void Name_is_trimmed()
     {
         var product = new Product("  Latte  ", ProductCategory.Coffee, ProductSize.M, 10m);

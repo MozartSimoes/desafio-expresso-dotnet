@@ -167,6 +167,9 @@ namespace Expresso.Api.Data.Migrations
                         .HasMaxLength(1)
                         .HasColumnType("character varying(1)");
 
+                    b.Property<int?>("Stock")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name", "Size")

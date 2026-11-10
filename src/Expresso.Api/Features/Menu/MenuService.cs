@@ -59,7 +59,7 @@ public class MenuService(
 
         var suggestion = MenuSuggestion.For(weather?.TemperatureC);
         var products = await db.Products.AsNoTracking()
-            .Where(p => p.Available && suggestion.Categories.Contains(p.Category))
+            .Where(p => p.Available && (p.Stock == null || p.Stock > 0) && suggestion.Categories.Contains(p.Category))
             .ToListAsync(ct);
 
         return new MenuTodayResponse(

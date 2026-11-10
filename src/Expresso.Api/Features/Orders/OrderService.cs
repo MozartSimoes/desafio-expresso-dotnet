@@ -44,8 +44,13 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock, ILogger<Orde
             i.Notes)).ToList();
 
         var order = Order.Place(request.CustomerName, clock.GetUtcNow(), lines, user);
+
+        // Stock and order are saved together: if any item runs out, nothing is saved.
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await ReserveStockAsync(order, ct);
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         logger.LogInformation("Order {OrderId} placed by {User} for {Customer}, total {Total}",
             order.Id, user, order.CustomerName, order.Total);
@@ -61,8 +66,53 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock, ILogger<Orde
         return ChangeStatusAsync(id, status, user, ct);
     }
 
-    public Task<OrderResponse> CancelAsync(int id, string user, CancellationToken ct) =>
-        ChangeStatusAsync(id, OrderStatus.Canceled, user, ct);
+    public async Task<OrderResponse> CancelAsync(int id, string user, CancellationToken ct)
+    {
+        // The cancellation and the stock going back to the shelf happen together.
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var response = await ChangeStatusAsync(id, OrderStatus.Canceled, user, ct);
+        foreach (var (productId, quantity) in QuantitiesByProduct(response.Items.Select(i => (i.ProductId, i.Quantity))))
+        {
+            await db.Products
+                .Where(p => p.Id == productId && p.Stock != null)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock + quantity), ct);
+        }
+        await transaction.CommitAsync(ct);
+        return response;
+    }
+
+    /// <summary>
+    /// "Pico das 8h": several attendants may sell the last pão de queijo at the same moment. Instead of
+    /// read-check-write in C# (where two requests both see 1 left), the database does it in one atomic
+    /// statement: UPDATE ... SET stock = stock - n WHERE id = @id AND stock >= n. If no row changed, it ran out.
+    /// </summary>
+    private async Task ReserveStockAsync(Order order, CancellationToken ct)
+    {
+        var ids = order.Items.Select(i => i.ProductId).Distinct().ToList();
+        var limited = await db.Products
+            .Where(p => ids.Contains(p.Id) && p.Stock != null)
+            .Select(p => new { p.Id, p.Name })
+            .ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+
+        // Always lock products in the same order (by id), so two orders can never wait on each other (deadlock).
+        foreach (var (productId, quantity) in QuantitiesByProduct(order.Items.Select(i => (i.ProductId, i.Quantity)))
+                     .Where(q => limited.ContainsKey(q.ProductId)))
+        {
+            var updated = await db.Products
+                .Where(p => p.Id == productId && p.Stock >= quantity)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - quantity), ct);
+
+            if (updated == 0)
+                throw new ConflictException($"Estoque insuficiente de '{limited[productId]}' para {quantity} unidade(s).");
+        }
+    }
+
+    // The same product can appear in two lines ("sem açúcar" and "com açúcar"); stock counts the total.
+    private static IEnumerable<(int ProductId, int Quantity)> QuantitiesByProduct(
+        IEnumerable<(int ProductId, int Quantity)> items) =>
+        items.GroupBy(i => i.ProductId)
+            .Select(g => (g.Key, g.Sum(i => i.Quantity)))
+            .OrderBy(q => q.Key);
 
     private async Task<OrderResponse> ChangeStatusAsync(int id, OrderStatus status, string user, CancellationToken ct)
     {

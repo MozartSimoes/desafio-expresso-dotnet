@@ -28,9 +28,9 @@ public static class DatabaseSetup
             new Product("Chá de camomila", ProductCategory.Tea, ProductSize.M, 7.00m),
             new Product("Café gelado", ProductCategory.ColdDrink, ProductSize.M, 12.00m),
             new Product("Chá mate gelado", ProductCategory.ColdDrink, ProductSize.G, 9.00m),
-            new Product("Pão de queijo", ProductCategory.Snack, null, 5.00m),
-            new Product("Coxinha", ProductCategory.Snack, null, 7.50m),
-            new Product("Bolo de cenoura", ProductCategory.Dessert, null, 8.00m),
+            new Product("Pão de queijo", ProductCategory.Snack, null, 5.00m, stock: 30),
+            new Product("Coxinha", ProductCategory.Snack, null, 7.50m, stock: 20),
+            new Product("Bolo de cenoura", ProductCategory.Dessert, null, 8.00m, stock: 8),
             new Product("Croissant", ProductCategory.Snack, null, 9.50m, available: false));
 
         await db.SaveChangesAsync();
