@@ -1,0 +1,17 @@
+[
+  {
+    "Name": "API + Site",
+    "Projects": [
+      {
+        "Path": "src\\Expresso.Api\\Expresso.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Expresso.Web\\Expresso.Web.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      }
+    ]
+  }
+]
