@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Expresso.Api.Domain;
 using Expresso.Api.Features.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -34,16 +35,27 @@ public class OrdersController(OrderService service) : ControllerBase
     public Task<IReadOnlyList<OrderHistoryEntry>> History(int id, CancellationToken ct) =>
         service.GetHistoryAsync(id, ct);
 
-    /// <summary>Places an order (attendant). Prices and total are calculated by the API from the current menu.</summary>
+    /// <summary>
+    /// Places an order (attendant or totem). Prices and total are calculated by the API from the current menu.
+    /// Send an Idempotency-Key header (e.g. a GUID generated when the customer starts checking out): repeating
+    /// the request with the same key returns the same order (200) instead of creating another one.
+    /// </summary>
     [HttpPost]
     [Authorize(Roles = Roles.TakeOrders)]
     [ProducesResponseType<OrderResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<OrderResponse>> Create(OrderRequest request, CancellationToken ct)
+    public async Task<ActionResult<OrderResponse>> Create(
+        OrderRequest request,
+        [FromHeader(Name = "Idempotency-Key")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "A Idempotency-Key deve ter entre 8 e 100 caracteres.")]
+        string? idempotencyKey,
+        CancellationToken ct)
     {
-        var order = await service.CreateAsync(request, CurrentUser, ct);
-        return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
+        var (order, replayed) = await service.CreateAsync(request, idempotencyKey, CurrentUser, ct);
+        return replayed ? Ok(order) : CreatedAtAction(nameof(Get), new { id = order.Id }, order);
     }
 
     /// <summary>Moves the order along Received → Preparing → Ready → Delivered (barista).</summary>

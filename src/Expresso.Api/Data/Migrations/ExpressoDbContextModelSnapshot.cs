@@ -180,6 +180,30 @@ namespace Expresso.Api.Data.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("Expresso.Api.Features.Orders.IdempotencyRecord", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("IdempotencyRecords");
+                });
+
             modelBuilder.Entity("Expresso.Api.Domain.OrderItem", b =>
                 {
                     b.HasOne("Expresso.Api.Domain.Order", null)
@@ -200,6 +224,17 @@ namespace Expresso.Api.Data.Migrations
                         .WithMany("History")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Expresso.Api.Features.Orders.IdempotencyRecord", b =>
+                {
+                    b.HasOne("Expresso.Api.Domain.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("Expresso.Api.Domain.Order", b =>

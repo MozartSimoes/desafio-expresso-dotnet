@@ -1,4 +1,5 @@
 using Expresso.Api.Domain;
+using Expresso.Api.Features.Orders;
 using Microsoft.EntityFrameworkCore;
 
 namespace Expresso.Api.Data;
@@ -7,6 +8,7 @@ public class ExpressoDbContext(DbContextOptions<ExpressoDbContext> options) : Db
 {
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +42,14 @@ public class ExpressoDbContext(DbContextOptions<ExpressoDbContext> options) : Db
 
             order.HasMany(o => o.History).WithOne().HasForeignKey("OrderId").OnDelete(DeleteBehavior.Cascade);
             order.Navigation(o => o.History).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<IdempotencyRecord>(record =>
+        {
+            record.HasKey(r => r.Key);
+            record.Property(r => r.Key).HasMaxLength(100);
+            record.Property(r => r.RequestHash).HasMaxLength(64);
+            record.HasOne(r => r.Order).WithMany().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<OrderStatusChange>(change =>

@@ -1,8 +1,13 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using Expresso.Api.Data;
 using Expresso.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Expresso.Api.Features.Orders;
+
+public record CreateOrderResult(OrderResponse Order, bool Replayed);
 
 public class OrderService(ExpressoDbContext db, TimeProvider clock, ILogger<OrderService> logger)
 {
@@ -31,8 +36,13 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock, ILogger<Orde
             .ToList();
     }
 
-    public async Task<OrderResponse> CreateAsync(OrderRequest request, string user, CancellationToken ct)
+    public async Task<CreateOrderResult> CreateAsync(
+        OrderRequest request, string? idempotencyKey, string user, CancellationToken ct)
     {
+        var requestHash = HashOf(request);
+        if (idempotencyKey is not null && await FindReplayAsync(idempotencyKey, requestHash, ct) is { } replay)
+            return replay;
+
         // One query for all products in the order instead of one per item.
         var ids = request.Items.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.Products.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
@@ -49,13 +59,49 @@ public class OrderService(ExpressoDbContext db, TimeProvider clock, ILogger<Orde
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await ReserveStockAsync(order, ct);
         db.Orders.Add(order);
-        await db.SaveChangesAsync(ct);
+        if (idempotencyKey is not null)
+            db.IdempotencyRecords.Add(new IdempotencyRecord(idempotencyKey, requestHash, order, clock.GetUtcNow()));
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (idempotencyKey is not null && IsDuplicateKey(ex))
+        {
+            // Both taps arrived at the same instant and the other one saved first: undo this one
+            // (including its stock reservation) and answer with the order the first tap created.
+            await transaction.RollbackAsync(ct);
+            db.ChangeTracker.Clear();
+            var winner = await FindReplayAsync(idempotencyKey, requestHash, ct);
+            if (winner is null)
+                throw;
+            return winner;
+        }
         await transaction.CommitAsync(ct);
 
         logger.LogInformation("Order {OrderId} placed by {User} for {Customer}, total {Total}",
             order.Id, user, order.CustomerName, order.Total);
-        return OrderResponse.From(order);
+        return new CreateOrderResult(OrderResponse.From(order), Replayed: false);
     }
+
+    private async Task<CreateOrderResult?> FindReplayAsync(string key, string requestHash, CancellationToken ct)
+    {
+        var record = await db.IdempotencyRecords.AsNoTracking().FirstOrDefaultAsync(r => r.Key == key, ct);
+        if (record is null)
+            return null;
+        if (record.RequestHash != requestHash)
+            throw new ConflictException("Esta Idempotency-Key já foi usada em um pedido diferente.");
+
+        logger.LogInformation("Repeated request with key {Key} answered with order {OrderId}", key, record.OrderId);
+        return new CreateOrderResult(OrderResponse.From(await FindAsync(record.OrderId, ct)), Replayed: true);
+    }
+
+    private static string HashOf(OrderRequest request) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request)));
+
+    private static bool IsDuplicateKey(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg &&
+        pg.ConstraintName == "PK_IdempotencyRecords";
 
     public Task<OrderResponse> AdvanceStatusAsync(int id, OrderStatus status, string user, CancellationToken ct)
     {
